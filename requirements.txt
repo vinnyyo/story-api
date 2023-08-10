@@ -1,0 +1,7 @@
+openai
+wandb
+pydub
+ffmpeg-python
+fastapi
+uvicorn
+python-multipart

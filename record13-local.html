@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medieval Audio Processing</title>
+    <link rel="stylesheet" href="http://127.0.0.1:8000/static/styles.css">
+</head>
+<body>
+    <button id="recordButton" onclick="toggleRecording()">Start Recording</button>
+    <div id="result-container"></div>
+    <textarea id="inputText" rows="4" cols="50" placeholder="Enter your text here"></textarea>
+    <button id="submitButton" onclick="sendTextToAPI()">Submit Text</button>
+
+    <script>
+        let mediaRecorder;
+        let recordedChunks = [];
+
+        async function toggleRecording() {
+            const recordButton = document.getElementById('recordButton');
+            if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+                recordedChunks = [];
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                mediaRecorder.ondataavailable = (event) => recordedChunks.push(event.data);
+                mediaRecorder.start();
+                recordButton.innerText = 'Stop Recording';
+            } else {
+                mediaRecorder.stop();
+                recordButton.innerText = 'Processing Recording';
+                mediaRecorder.onstop = async () => {
+                    await sendAudioToAPI();
+                    recordButton.innerText = 'Start Recording';
+                };
+            }
+        }
+
+        async function sendAudioToAPI() {
+            const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+            const formData = new FormData();
+            formData.append('audio', blob);
+
+            try {
+                const response = await fetch('http://127.0.0.1:8000/process_audio', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+
+                const resultContainer = document.getElementById('result-container');
+                resultContainer.innerHTML = ''; // Clear the previous content
+
+                data.forEach(item => {
+                    const paragraph = document.createElement('p');
+                    paragraph.innerText = item.words;
+
+                    const img = document.createElement('img');
+                    img.src = item.image;
+                    img.alt = 'Image related to the words';
+
+                    resultContainer.appendChild(paragraph);
+                    resultContainer.appendChild(img);
+                });
+
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred while processing the audio.');
+            }
+        }
+
+        async function sendTextToAPI() {
+            const inputText = document.getElementById('inputText');
+            const textContent = inputText.value;
+
+            try {
+                const response = await fetch('http://127.0.0.1:8000/process_text', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ text: textContent }),
+                });
+
+                const data = await response.json();
+
+                const resultContainer = document.getElementById('result-container');
+                resultContainer.innerHTML = ''; // Clear the previous content
+
+                data.forEach(item => {
+                    const paragraph = document.createElement('p');
+                    paragraph.innerText = item.words;
+
+                    const img = document.createElement('img');
+                    img.src = item.image;
+                    img.alt = 'Image related to the words';
+
+                    resultContainer.appendChild(paragraph);
+                    resultContainer.appendChild(img);
+                });
+
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred while processing the text.');
+            }
+        }
+    </script>
+</body>
+</html>
+
